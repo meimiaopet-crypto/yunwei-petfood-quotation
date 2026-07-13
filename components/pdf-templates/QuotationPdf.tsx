@@ -1,12 +1,9 @@
-/** @jsxImportSource @react-pdf/renderer */
 /**
  * Quotation / PI PDF 模板（@react-pdf/renderer）
  * 支持中 / EN / VI 三语言 + 完整 PI 信息（银行账户/受益人/公章）
- * 顶部 /** @jsxImportSource @react-pdf/renderer * / 告诉 SWC 用 @react-pdf/renderer 的 jsx-runtime，
- * 这样 JSX 会被编译成 @react-pdf/renderer 的 createElement 而不是 React 的，
- * renderToBuffer 才能识别为 PDF 节点。
+ * 不写 JSX，用 @react-pdf/renderer 的 Document/Page/Text/View 元素直接调用 renderToBuffer
  */
-import React from 'react';
+import * as React from 'react';
 import { Document, Page, Text, View, StyleSheet, Image, Font } from '@react-pdf/renderer';
 import { t, tIncoterm, tLogistics, formatMoney, formatDate } from '@/lib/i18n/outputTranslations';
 import type { CompanyProfile, Customer, QuotationItem, TermsTemplate, Currency, Locale, Incoterm, LogisticsType } from '@/types';
