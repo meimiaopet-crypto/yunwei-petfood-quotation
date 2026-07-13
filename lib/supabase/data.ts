@@ -247,13 +247,34 @@ export const data = {
     async save(q: Quotation): Promise<Quotation> {
       if (!isSupabaseConfigured()) return q; // 演示环境：仅返回
       const sb = getBrowserSupabase();
-      const { id, items, ...header } = q;
-      const saved = await sb.from('quotations').upsert(header).select().single();
-      if (items?.length) {
-        await sb.from('quotation_items').delete().eq('quotation_id', saved.data!.id);
-        await sb.from('quotation_items').insert(items.map((i) => ({ ...i, quotation_id: saved.data!.id })));
+      const { id: _ignored, items, ...header } = q;
+      // 用 quote_no 查现有 id，避免重复 insert
+      const { data: existing } = await sb.from('quotations')
+        .select('id').eq('quote_no', q.quote_no).maybeSingle();
+      let savedId: string;
+      if (existing?.id) {
+        // 更新现有
+        const { data: updated, error } = await sb.from('quotations')
+          .update(header).eq('id', existing.id).select().single();
+        if (error) throw error;
+        savedId = updated!.id;
+      } else {
+        // 插入新
+        const { data: inserted, error } = await sb.from('quotations')
+          .insert(header).select().single();
+        if (error) throw error;
+        savedId = inserted!.id;
       }
-      return q;
+      // 同步明细：删旧 → 插新
+      if (items?.length) {
+        await sb.from('quotation_items').delete().eq('quotation_id', savedId);
+        const itemRows = items.map((i: any) => {
+          const { id: _iid, ...row } = i;
+          return { ...row, quotation_id: savedId };
+        });
+        await sb.from('quotation_items').insert(itemRows);
+      }
+      return { ...q, id: savedId };
     },
   },
 
