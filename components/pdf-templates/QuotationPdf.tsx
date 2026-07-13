@@ -1,14 +1,25 @@
 /**
  * Quotation / PI PDF 模板（@react-pdf/renderer）
  * 支持中 / EN / VI 三语言 + 完整 PI 信息（银行账户/受益人/公章）
- * 不写 JSX，用 @react-pdf/renderer 的 Document/Page/Text/View 元素直接调用 renderToBuffer
+ *
+ * 关键：本文件**完全不写 JSX**，全部用 React.createElement 显式构造元素，
+ * 因为 Next.js 15 把 react/jsx-runtime 替换成 react-rsc 版本，生成的 element
+ * 标记是 {$$typeof, type, key, ref, props}（$$typeof 是 rsc 专用 symbol），
+ * @react-pdf/renderer 4.x 的 reconciler-23 看到非标准 $$typeof 抛
+ * Minified React error #31。React.createElement 永远产出标准 element 标记，
+ * 不会走 jsx-runtime。
  */
 import * as React from 'react';
 import { Document, Page, Text, View, StyleSheet, Image, Font } from '@react-pdf/renderer';
 import { t, tIncoterm, tLogistics, formatMoney, formatDate } from '@/lib/i18n/outputTranslations';
 import type { CompanyProfile, Customer, QuotationItem, TermsTemplate, Currency, Locale, Incoterm, LogisticsType } from '@/types';
 
-// 字体（生产环境替换为本地 Noto Sans CJK）
+// React.createElement 别名
+const h = React.createElement;
+const Fragment = React.Fragment;
+const txt = (s: any) => s; // 文本节点的占位构造
+
+// 字体
 Font.register({
   family: 'Noto Sans CJK SC',
   src: 'https://fonts.gstatic.com/s/notosanssc/v36/k3kCo84MPvpLmixcA63oeAL7Iqp5IZJF9bmaG9_FnYg.woff2',
@@ -77,199 +88,331 @@ export interface PdfProps {
 }
 
 export function QuotationPdf({ kind, company, customer, items, summary, meta, terms }: PdfProps) {
-  const lang = meta.language;
-  const title = (kind === 'pi' ? t.proformaInvoice[lang] : t.quotation[lang]).toUpperCase();
-  const termContent = (term: TermsTemplate) =>
+  const lang: Locale = meta.language;
+  const title: string = (kind === 'pi' ? t.proformaInvoice[lang] : t.quotation[lang]).toUpperCase();
+  const termContent = (term: TermsTemplate): string =>
     (lang === 'vi' ? term.content_vi : lang === 'en' ? term.content_en : term.content_zh) || term.content_en || '';
 
-  // 列宽分配（合计 100%）
   const colW = {
     no: '4%', name: '26%', spec: '14%', qty: '8%', unit: '6%',
     ctns: '6%', price: '14%', amount: '14%', weight: '8%',
   } as const;
 
-  return (
-    <Document>
-      <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.row}>
-            {company.logo_url
-              ? <Image src={company.logo_url} style={{ width: 56, height: 56, marginRight: 10 }} />
-              : <View style={styles.logo}><Text>YW</Text></View>}
-            <View>
-              <Text style={styles.companyName}>{lang === 'en' ? company.name_en : company.name_zh}</Text>
-              <Text style={styles.companyInfo}>{lang === 'en' ? company.address_en : company.address_zh}</Text>
-              <Text style={styles.contactLine}>{company.phone} · {company.email}</Text>
-              {company.website && <Text style={styles.contactLine}>{company.website}</Text>}
-            </View>
-          </View>
-          <View>
-            <Text style={styles.title}>{title}</Text>
-            <Text style={styles.quoteNo}>{meta.quoteNo}</Text>
-            {kind === 'pi' && meta.piNo && <Text style={styles.quoteNo}>PI: {meta.piNo}</Text>}
-            <Text style={styles.date}>{t.date[lang]}: {formatDate(meta.date, lang)}</Text>
-            <Text style={styles.date}>{t.validUntil[lang]}: {formatDate(meta.validUntil, lang)}</Text>
-          </View>
-        </View>
-
-        {/* Bill To + Incoterms */}
-        <View style={styles.twoCol}>
-          <View style={styles.col}>
-            <Text style={styles.sectionTitle}>{t.billTo[lang]}</Text>
-            {customer ? (
-              <>
-                <Text style={{ fontSize: 9, fontWeight: 700, marginBottom: 2 }}>{customer.company_name}</Text>
-                {customer.contact_person && <Text style={{ fontSize: 8 }}>{t.contact[lang]}: {customer.contact_person}</Text>}
-                {customer.address && <Text style={{ fontSize: 8, color: '#475569' }}>{customer.address}</Text>}
-                {customer.phone && <Text style={{ fontSize: 8 }}>{t.tel[lang]}: {customer.phone}</Text>}
-                {customer.whatsapp && <Text style={{ fontSize: 8 }}>WhatsApp: {customer.whatsapp}</Text>}
-                {customer.email && <Text style={{ fontSize: 8 }}>{t.email[lang]}: {customer.email}</Text>}
-              </>
-            ) : <Text style={{ fontSize: 8, color: '#94a3b8' }}>—</Text>}
-          </View>
-          <View style={styles.col}>
-            <Text style={styles.sectionTitle}>{t.incoterms[lang]} / {t.portOfLoading[lang]}</Text>
-            <Text style={{ fontSize: 8, marginBottom: 1 }}><Text style={{ color: '#64748B' }}>{t.incoterms[lang]}: </Text>{(tIncoterm as any)[meta.incoterms]?.[lang] ?? meta.incoterms}</Text>
-            <Text style={{ fontSize: 8, marginBottom: 1 }}><Text style={{ color: '#64748B' }}>{t.portOfLoading[lang]}: </Text>{meta.portOfLoading}</Text>
-            {meta.portOfDestination && <Text style={{ fontSize: 8, marginBottom: 1 }}><Text style={{ color: '#64748B' }}>{t.portOfDestination[lang]}: </Text>{meta.portOfDestination}</Text>}
-            <Text style={{ fontSize: 8, marginBottom: 1 }}><Text style={{ color: '#64748B' }}>{t.leadTime[lang]}: </Text>{meta.leadTime}</Text>
-            <Text style={{ fontSize: 8 }}><Text style={{ color: '#64748B' }}>{t.paymentTerms[lang]}: </Text>{meta.paymentTerms}</Text>
-          </View>
-        </View>
-
-        {/* Items */}
-        <View style={styles.table}>
-          <View style={styles.tableHeader}>
-            <Text style={[styles.th, { width: colW.no }]}>{t.itemNo[lang]}</Text>
-            <Text style={[styles.th, { width: colW.name }]}>{t.productName[lang]}</Text>
-            <Text style={[styles.th, { width: colW.spec }]}>{t.specification[lang]}</Text>
-            <Text style={[styles.th, { width: colW.qty, textAlign: 'right' }]}>{t.quantity[lang]}</Text>
-            <Text style={[styles.th, { width: colW.unit }]}>{t.unit[lang]}</Text>
-            <Text style={[styles.th, { width: colW.ctns, textAlign: 'right' }]}>{t.cartons[lang]}</Text>
-            <Text style={[styles.th, { width: colW.price, textAlign: 'right' }]}>{t.unitPrice[lang]}</Text>
-            <Text style={[styles.th, { width: colW.amount, textAlign: 'right' }]}>{t.amount[lang]}</Text>
-          </View>
-          {items.length === 0 && (
-            <View style={styles.tableRow}>
-              <Text style={[styles.td, { width: '100%', textAlign: 'center', padding: 20, color: '#94a3b8' }]}>—</Text>
-            </View>
-          )}
-          {items.map((it) => (
-            <View key={it.line_no} style={styles.tableRow}>
-              <Text style={[styles.td, { width: colW.no }]}>{it.line_no}</Text>
-              <View style={{ width: colW.name, padding: 4 }}>
-                <Text style={{ fontSize: 8, fontWeight: 700 }}>{it.product_name_output}</Text>
-                <Text style={{ fontSize: 7, color: '#94a3b8' }}>{it.sku}</Text>
-              </View>
-              <Text style={[styles.td, { width: colW.spec, color: '#475569' }]}>{it.spec}</Text>
-              <Text style={[styles.td, { width: colW.qty, textAlign: 'right' }]}>{it.quantity?.toLocaleString()}</Text>
-              <Text style={[styles.td, { width: colW.unit }]}>{it.unit}</Text>
-              <Text style={[styles.td, { width: colW.ctns, textAlign: 'right' }]}>{it.cartons}</Text>
-              <Text style={[styles.td, { width: colW.price, textAlign: 'right' }]}>{formatMoney(it.unit_price, meta.currency, lang)}</Text>
-              <Text style={[styles.td, { width: colW.amount, textAlign: 'right', fontWeight: 700 }]}>{formatMoney(it.total_price ?? 0, meta.currency, lang)}</Text>
-            </View>
-          ))}
-        </View>
-
-        {/* Summary */}
-        <View style={styles.summaryBox}>
-          <View style={styles.summaryRow}>
-            <Text style={{ fontSize: 9, color: '#64748B' }}>{t.subtotal[lang]}</Text>
-            <Text style={{ fontSize: 9 }}>{formatMoney(summary.subtotal, meta.currency, lang)}</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={{ fontSize: 9, color: '#64748B' }}>{t.freight[lang]}{meta.logisticsType ? ` (${tLogistics[meta.logisticsType]?.[lang] ?? meta.logisticsType})` : ''}</Text>
-            <Text style={{ fontSize: 9 }}>{formatMoney(meta.logisticsCost, meta.currency, lang)}</Text>
-          </View>
-          {summary.insurance > 0 && (
-            <View style={styles.summaryRow}>
-              <Text style={{ fontSize: 9, color: '#64748B' }}>{t.insurance[lang]}</Text>
-              <Text style={{ fontSize: 9 }}>{formatMoney(summary.insurance, meta.currency, lang)}</Text>
-            </View>
-          )}
-          {meta.otherCharges > 0 && (
-            <View style={styles.summaryRow}>
-              <Text style={{ fontSize: 9, color: '#64748B' }}>{t.otherCharges[lang]}</Text>
-              <Text style={{ fontSize: 9 }}>{formatMoney(meta.otherCharges, meta.currency, lang)}</Text>
-            </View>
-          )}
-          <View style={styles.totalLine}>
-            <Text style={{ fontSize: 10, fontWeight: 700 }}>{t.totalAmount[lang]}</Text>
-            <Text style={{ fontSize: 12, fontWeight: 700, color: '#2563EB' }}>{formatMoney(summary.total + meta.otherCharges, meta.currency, lang)}</Text>
-          </View>
-        </View>
-
-        {/* Cargo info */}
-        {items.length > 0 && (
-          <View style={styles.cargoInfo}>
-            <Text>{t.totalCartons[lang]}: <Text style={{ color: '#0F172A' }}>{summary.totalCartons}</Text></Text>
-            <Text>{t.grossWeight[lang]}: <Text style={{ color: '#0F172A' }}>{summary.totalGrossWeight.toFixed(2)} kg</Text></Text>
-            <Text>{t.measurement[lang]}: <Text style={{ color: '#0F172A' }}>{summary.totalCbm.toFixed(4)} CBM</Text></Text>
-          </View>
-        )}
-
-        {/* PI: 银行账户 + 公章 */}
-        {kind === 'pi' && company.bank_info && (
-          <View style={styles.bankBox}>
-            <Text style={{ ...styles.sectionTitle, marginBottom: 4 }}>{t.bankInfo[lang]}</Text>
-            {company.bank_info.usd && (
-              <>
-                <Text style={styles.bankRow}><Text style={{ color: '#64748B' }}>{t.beneficiary[lang]}: </Text>{company.bank_info.usd.beneficiary}</Text>
-                <Text style={styles.bankRow}><Text style={{ color: '#64748B' }}>{t.bankName[lang]}: </Text>{company.bank_info.usd.bank_name}</Text>
-                <Text style={styles.bankRow}><Text style={{ color: '#64748B' }}>{t.accountNo[lang]}: </Text>{company.bank_info.usd.account_no}</Text>
-                {company.bank_info.usd.swift && <Text style={styles.bankRow}><Text style={{ color: '#64748B' }}>{t.swiftCode[lang]}: </Text>{company.bank_info.usd.swift}</Text>}
-              </>
-            )}
-          </View>
-        )}
-
-        {/* Notes & Terms */}
-        {(meta.notes || terms.length > 0) && (
-          <View style={{ marginTop: 14 }}>
-            {meta.notes && (
-              <View style={{ marginBottom: 6 }}>
-                <Text style={styles.sectionTitle}>{t.remarks[lang]}</Text>
-                <Text style={{ fontSize: 8 }}>{meta.notes}</Text>
-              </View>
-            )}
-            {terms.length > 0 && (
-              <View>
-                <Text style={styles.sectionTitle}>{t.termsAndConditions[lang]}</Text>
-                {terms.map((term) => (
-                  <Text key={term.id} style={{ fontSize: 8, marginBottom: 2 }}>
-                    <Text style={{ fontWeight: 700 }}>· {term.name}：</Text>{termContent(term)}
-                  </Text>
-                ))}
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Signature / Seal */}
-        <View style={{ marginTop: 24, flexDirection: 'row', justifyContent: 'space-between' }}>
-          <View>
-            <Text style={{ fontSize: 8, color: '#64748B' }}>{t.validNotice[lang]} {formatDate(meta.validUntil, lang)}</Text>
-          </View>
-          <View>
-            <Text style={{ fontSize: 8, color: '#64748B', marginBottom: 4 }}>{t.authorizedSignature[lang]}</Text>
-            <View style={{ borderBottom: 0.5, borderBottomColor: '#0F172A', width: 160, height: 36 }} />
-            <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 4 }}>
-              <View>
-                <Text style={{ fontSize: 8, fontWeight: 700 }}>{lang === 'en' ? company.name_en : company.name_zh}</Text>
-                <Text style={{ fontSize: 7, color: '#64748B' }}>{formatDate(meta.date, lang)}</Text>
-              </View>
-              {company.seal_url && <Image src={company.seal_url} style={[styles.seal, { marginLeft: 8 }]} />}
-            </View>
-          </View>
-        </View>
-
-        {/* Footer */}
-        <View style={styles.footer} fixed>
-          <Text>{lang === 'en' ? company.name_en : company.name_zh} · {company.email}</Text>
-          <Text render={({ pageNumber, totalPages }) => `${t.pageNo[lang]} ${pageNumber} ${t.pageOf[lang]} ${totalPages}`} />
-        </View>
-      </Page>
-    </Document>
+  // === 构造整个 PDF 文档（全部用 React.createElement） ===
+  return h(
+    Document,
+    null,
+    h(
+      Page,
+      { size: 'A4', style: styles.page },
+      // ----- Header -----
+      h(
+        View,
+        { style: styles.header },
+        h(
+          View,
+          { style: styles.row },
+          company.logo_url
+            ? h(Image, { src: company.logo_url, style: { width: 56, height: 56, marginRight: 10 } })
+            : h(View, { style: styles.logo }, h(Text, null, 'YW')),
+          h(
+            View,
+            null,
+            h(Text, { style: styles.companyName }, lang === 'en' ? company.name_en : company.name_zh),
+            h(Text, { style: styles.companyInfo }, lang === 'en' ? company.address_en : company.address_zh),
+            h(Text, { style: styles.contactLine }, `${company.phone ?? ''} · ${company.email ?? ''}`),
+            company.website ? h(Text, { style: styles.contactLine }, company.website) : null,
+          ),
+        ),
+        h(
+          View,
+          null,
+          h(Text, { style: styles.title }, title),
+          h(Text, { style: styles.quoteNo }, meta.quoteNo),
+          kind === 'pi' && meta.piNo ? h(Text, { style: styles.quoteNo }, `PI: ${meta.piNo}`) : null,
+          h(Text, { style: styles.date }, `${t.date[lang]}: ${formatDate(meta.date, lang)}`),
+          h(Text, { style: styles.date }, `${t.validUntil[lang]}: ${formatDate(meta.validUntil, lang)}`),
+        ),
+      ),
+      // ----- Bill To + Incoterms -----
+      h(
+        View,
+        { style: styles.twoCol },
+        // 左列：客户
+        h(
+          View,
+          { style: styles.col },
+          h(Text, { style: styles.sectionTitle }, t.billTo[lang]),
+          customer
+            ? h(
+                Fragment,
+                null,
+                h(Text, { style: { fontSize: 9, fontWeight: 700, marginBottom: 2 } }, customer.company_name),
+                customer.contact_person
+                  ? h(Text, { style: { fontSize: 8 } }, `${t.contact[lang]}: ${customer.contact_person}`)
+                  : null,
+                customer.address
+                  ? h(Text, { style: { fontSize: 8, color: '#475569' } }, customer.address)
+                  : null,
+                customer.phone ? h(Text, { style: { fontSize: 8 } }, `${t.tel[lang]}: ${customer.phone}`) : null,
+                customer.whatsapp ? h(Text, { style: { fontSize: 8 } }, `WhatsApp: ${customer.whatsapp}`) : null,
+                customer.email ? h(Text, { style: { fontSize: 8 } }, `${t.email[lang]}: ${customer.email}`) : null,
+              )
+            : h(Text, { style: { fontSize: 8, color: '#94a3b8' } }, '—'),
+        ),
+        // 右列：贸易条件
+        h(
+          View,
+          { style: styles.col },
+          h(Text, { style: styles.sectionTitle }, `${t.incoterms[lang]} / ${t.portOfLoading[lang]}`),
+          h(
+            Text,
+            { style: { fontSize: 8, marginBottom: 1 } },
+            h(Text, { style: { color: '#64748B' } }, `${t.incoterms[lang]}: `),
+            (tIncoterm as any)[meta.incoterms]?.[lang] ?? meta.incoterms,
+          ),
+          h(
+            Text,
+            { style: { fontSize: 8, marginBottom: 1 } },
+            h(Text, { style: { color: '#64748B' } }, `${t.portOfLoading[lang]}: `),
+            meta.portOfLoading,
+          ),
+          meta.portOfDestination
+            ? h(
+                Text,
+                { style: { fontSize: 8, marginBottom: 1 } },
+                h(Text, { style: { color: '#64748B' } }, `${t.portOfDestination[lang]}: `),
+                meta.portOfDestination,
+              )
+            : null,
+          h(
+            Text,
+            { style: { fontSize: 8, marginBottom: 1 } },
+            h(Text, { style: { color: '#64748B' } }, `${t.leadTime[lang]}: `),
+            meta.leadTime,
+          ),
+          h(
+            Text,
+            { style: { fontSize: 8 } },
+            h(Text, { style: { color: '#64748B' } }, `${t.paymentTerms[lang]}: `),
+            meta.paymentTerms,
+          ),
+        ),
+      ),
+      // ----- Items Table -----
+      h(
+        View,
+        { style: styles.table },
+        h(
+          View,
+          { style: styles.tableHeader },
+          h(Text, { style: [styles.th, { width: colW.no }] }, t.itemNo[lang]),
+          h(Text, { style: [styles.th, { width: colW.name }] }, t.productName[lang]),
+          h(Text, { style: [styles.th, { width: colW.spec }] }, t.specification[lang]),
+          h(Text, { style: [styles.th, { width: colW.qty, textAlign: 'right' }] }, t.quantity[lang]),
+          h(Text, { style: [styles.th, { width: colW.unit }] }, t.unit[lang]),
+          h(Text, { style: [styles.th, { width: colW.ctns, textAlign: 'right' }] }, t.cartons[lang]),
+          h(Text, { style: [styles.th, { width: colW.price, textAlign: 'right' }] }, t.unitPrice[lang]),
+          h(Text, { style: [styles.th, { width: colW.amount, textAlign: 'right' }] }, t.amount[lang]),
+        ),
+        items.length === 0
+          ? h(
+              View,
+              { style: styles.tableRow },
+              h(Text, { style: [styles.td, { width: '100%', textAlign: 'center', padding: 20, color: '#94a3b8' }] }, '—'),
+            )
+          : null,
+        ...items.map((it) =>
+          h(
+            View,
+            { key: it.line_no, style: styles.tableRow },
+            h(Text, { style: [styles.td, { width: colW.no }] }, String(it.line_no)),
+            h(
+              View,
+              { style: { width: colW.name, padding: 4 } },
+              h(Text, { style: { fontSize: 8, fontWeight: 700 } }, it.product_name_output),
+              h(Text, { style: { fontSize: 7, color: '#94a3b8' } }, it.sku),
+            ),
+            h(Text, { style: [styles.td, { width: colW.spec, color: '#475569' }] }, it.spec),
+            h(Text, { style: [styles.td, { width: colW.qty, textAlign: 'right' }] }, it.quantity?.toLocaleString()),
+            h(Text, { style: [styles.td, { width: colW.unit }] }, it.unit),
+            h(Text, { style: [styles.td, { width: colW.ctns, textAlign: 'right' }] }, String(it.cartons)),
+            h(Text, { style: [styles.td, { width: colW.price, textAlign: 'right' }] }, formatMoney(it.unit_price, meta.currency, lang)),
+            h(Text, { style: [styles.td, { width: colW.amount, textAlign: 'right', fontWeight: 700 }] }, formatMoney(it.total_price ?? 0, meta.currency, lang)),
+          ),
+        ),
+      ),
+      // ----- Summary -----
+      h(
+        View,
+        { style: styles.summaryBox },
+        h(
+          View,
+          { style: styles.summaryRow },
+          h(Text, { style: { fontSize: 9, color: '#64748B' } }, t.subtotal[lang]),
+          h(Text, { style: { fontSize: 9 } }, formatMoney(summary.subtotal, meta.currency, lang)),
+        ),
+        h(
+          View,
+          { style: styles.summaryRow },
+          h(
+            Text,
+            { style: { fontSize: 9, color: '#64748B' } },
+            `${t.freight[lang]}${meta.logisticsType ? ` (${(tLogistics as any)[meta.logisticsType]?.[lang] ?? meta.logisticsType})` : ''}`,
+          ),
+          h(Text, { style: { fontSize: 9 } }, formatMoney(meta.logisticsCost, meta.currency, lang)),
+        ),
+        summary.insurance > 0
+          ? h(
+              View,
+              { style: styles.summaryRow },
+              h(Text, { style: { fontSize: 9, color: '#64748B' } }, t.insurance[lang]),
+              h(Text, { style: { fontSize: 9 } }, formatMoney(summary.insurance, meta.currency, lang)),
+            )
+          : null,
+        meta.otherCharges > 0
+          ? h(
+              View,
+              { style: styles.summaryRow },
+              h(Text, { style: { fontSize: 9, color: '#64748B' } }, t.otherCharges[lang]),
+              h(Text, { style: { fontSize: 9 } }, formatMoney(meta.otherCharges, meta.currency, lang)),
+            )
+          : null,
+        h(
+          View,
+          { style: styles.totalLine },
+          h(Text, { style: { fontSize: 10, fontWeight: 700 } }, t.totalAmount[lang]),
+          h(Text, { style: { fontSize: 12, fontWeight: 700, color: '#2563EB' } }, formatMoney(summary.total + meta.otherCharges, meta.currency, lang)),
+        ),
+      ),
+      // ----- Cargo info -----
+      items.length > 0
+        ? h(
+            View,
+            { style: styles.cargoInfo },
+            h(
+              Text,
+              null,
+              `${t.totalCartons[lang]}: `,
+              h(Text, { style: { color: '#0F172A' } }, String(summary.totalCartons)),
+            ),
+            h(
+              Text,
+              null,
+              `${t.grossWeight[lang]}: `,
+              h(Text, { style: { color: '#0F172A' } }, `${summary.totalGrossWeight.toFixed(2)} kg`),
+            ),
+            h(
+              Text,
+              null,
+              `${t.measurement[lang]}: `,
+              h(Text, { style: { color: '#0F172A' } }, `${summary.totalCbm.toFixed(4)} CBM`),
+            ),
+          )
+        : null,
+      // ----- Bank info (PI only) -----
+      kind === 'pi' && company.bank_info
+        ? h(
+            View,
+            { style: styles.bankBox },
+            h(Text, { style: { ...styles.sectionTitle, marginBottom: 4 } }, t.bankInfo[lang]),
+            company.bank_info.usd
+              ? h(
+                  Fragment,
+                  null,
+                  h(
+                    Text,
+                    { style: styles.bankRow },
+                    h(Text, { style: { color: '#64748B' } }, `${t.beneficiary[lang]}: `),
+                    company.bank_info.usd.beneficiary,
+                  ),
+                  h(
+                    Text,
+                    { style: styles.bankRow },
+                    h(Text, { style: { color: '#64748B' } }, `${t.bankName[lang]}: `),
+                    company.bank_info.usd.bank_name,
+                  ),
+                  h(
+                    Text,
+                    { style: styles.bankRow },
+                    h(Text, { style: { color: '#64748B' } }, `${t.accountNo[lang]}: `),
+                    company.bank_info.usd.account_no,
+                  ),
+                  company.bank_info.usd.swift
+                    ? h(
+                        Text,
+                        { style: styles.bankRow },
+                        h(Text, { style: { color: '#64748B' } }, `${t.swiftCode[lang]}: `),
+                        company.bank_info.usd.swift,
+                      )
+                    : null,
+                )
+              : null,
+          )
+        : null,
+      // ----- Notes & Terms -----
+      meta.notes || terms.length > 0
+        ? h(
+            View,
+            { style: { marginTop: 14 } },
+            meta.notes
+              ? h(
+                  View,
+                  { style: { marginBottom: 6 } },
+                  h(Text, { style: styles.sectionTitle }, t.remarks[lang]),
+                  h(Text, { style: { fontSize: 8 } }, meta.notes),
+                )
+              : null,
+            terms.length > 0
+              ? h(
+                  View,
+                  null,
+                  h(Text, { style: styles.sectionTitle }, t.termsAndConditions[lang]),
+                  ...terms.map((term) =>
+                    h(
+                      Text,
+                      { key: term.id, style: { fontSize: 8, marginBottom: 2 } },
+                      h(Text, { style: { fontWeight: 700 } }, `· ${term.name}：${termContent(term)}`),
+                    ),
+                  ),
+                )
+              : null,
+          )
+        : null,
+      // ----- Signature / Seal -----
+      h(
+        View,
+        { style: { marginTop: 24, flexDirection: 'row', justifyContent: 'space-between' } },
+        h(
+          View,
+          null,
+          h(Text, { style: { fontSize: 8, color: '#64748B' } }, `${t.validNotice[lang]} ${formatDate(meta.validUntil, lang)}`),
+        ),
+        h(
+          View,
+          null,
+          h(Text, { style: { fontSize: 8, color: '#64748B', marginBottom: 4 } }, t.authorizedSignature[lang]),
+          h(View, { style: { borderBottom: 0.5, borderBottomColor: '#0F172A', width: 160, height: 36 } }),
+          h(
+            View,
+            { style: { flexDirection: 'row', alignItems: 'flex-end', marginTop: 4 } },
+            h(
+              View,
+              null,
+              h(Text, { style: { fontSize: 8, fontWeight: 700 } }, lang === 'en' ? company.name_en : company.name_zh),
+              h(Text, { style: { fontSize: 7, color: '#64748B' } }, formatDate(meta.date, lang)),
+            ),
+            company.seal_url ? h(Image, { src: company.seal_url, style: [styles.seal, { marginLeft: 8 }] }) : null,
+          ),
+        ),
+      ),
+      // ----- Footer -----
+      h(
+        View,
+        { style: styles.footer, fixed: true } as any,
+        h(Text, null, `${lang === 'en' ? company.name_en : company.name_zh} · ${company.email ?? ''}`),
+        h(Text, { render: ({ pageNumber, totalPages }: any) => `${t.pageNo[lang]} ${pageNumber} ${t.pageOf[lang]} ${totalPages}` } as any),
+      ),
+    ),
   );
 }

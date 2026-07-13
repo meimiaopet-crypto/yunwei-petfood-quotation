@@ -72,7 +72,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ no: 
     const safeLogistics = (VALID_LOGISTICS as readonly string[]).includes(header.logistics_type as string) ? header.logistics_type as any : '海运';
     const safeCurrency = (VALID_CURRENCY as readonly string[]).includes(header.currency as string) ? header.currency as any : 'USD';
 
-    const doc = (QuotationPdf as any)({
+    // QuotationPdf 内部已用 React.createElement 构造，得到的 element 标记是
+    // 标准 react.element（Symbol.for("react.element")），@react-pdf reconciler 能识别
+    const doc = QuotationPdf({
       kind,
       company: company as CompanyProfile,
       customer: customer as Customer | null,
