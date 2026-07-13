@@ -130,7 +130,7 @@ export function QuotationPdf({ kind, company, customer, items, summary, meta, te
           </View>
           <View style={styles.col}>
             <Text style={styles.sectionTitle}>{t.incoterms[lang]} / {t.portOfLoading[lang]}</Text>
-            <Text style={{ fontSize: 8, marginBottom: 1 }}><Text style={{ color: '#64748B' }}>{t.incoterms[lang]}: </Text>{tIncoterm[meta.incoterms][lang]}</Text>
+            <Text style={{ fontSize: 8, marginBottom: 1 }}><Text style={{ color: '#64748B' }}>{t.incoterms[lang]}: </Text>{(tIncoterm as any)[meta.incoterms]?.[lang] ?? meta.incoterms}</Text>
             <Text style={{ fontSize: 8, marginBottom: 1 }}><Text style={{ color: '#64748B' }}>{t.portOfLoading[lang]}: </Text>{meta.portOfLoading}</Text>
             {meta.portOfDestination && <Text style={{ fontSize: 8, marginBottom: 1 }}><Text style={{ color: '#64748B' }}>{t.portOfDestination[lang]}: </Text>{meta.portOfDestination}</Text>}
             <Text style={{ fontSize: 8, marginBottom: 1 }}><Text style={{ color: '#64748B' }}>{t.leadTime[lang]}: </Text>{meta.leadTime}</Text>

@@ -48,16 +48,21 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ no: 
 
     // 直接调用组件函数（而不是 React.createElement 包装），
     // 这样 renderToBuffer 拿到的是真正的 Document 元素而不是 component wrapper
+    // 兜底：把 incoterms/logistics_type 规整为有效枚举
+    const safeIncoterms = (['FOB', 'CIF', 'CFR', 'EXW'] as const).includes(header.incoterms as any)
+      ? header.incoterms : 'FOB';
+    const safeLogistics = (['海运', '空运', '陆运'] as const).includes(header.logistics_type as any)
+      ? header.logistics_type : '海运';
     const doc = (QuotationPdf as any)({
       kind, company: company as CompanyProfile, customer: customer as Customer,
       items: (items ?? []) as QuotationItem[], summary, terms: (terms ?? []) as TermsTemplate[],
       meta: {
         quoteNo: header.quote_no, piNo: header.pi_no, date: header.created_at?.slice(0, 10),
         validUntil: header.valid_until, language: lang, currency: header.currency,
-        incoterms: header.incoterms, portOfLoading: header.port_of_loading,
+        incoterms: safeIncoterms, portOfLoading: header.port_of_loading,
         portOfDestination: header.port_of_destination, paymentTerms: header.payment_terms,
         leadTime: header.lead_time, logisticsCost: Number(header.logistics_cost ?? 0),
-        logisticsType: header.logistics_type, taxRate: Number(header.tax_rate ?? 0),
+        logisticsType: safeLogistics, taxRate: Number(header.tax_rate ?? 0),
         insuranceRate: Number(header.insurance_rate ?? 0.003),
         otherCharges: Number(header.other_charges ?? 0), notes: header.notes ?? '',
       },
