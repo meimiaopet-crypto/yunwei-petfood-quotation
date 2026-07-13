@@ -3,7 +3,8 @@
  * 服务端渲染 Quotation / PI PDF（@react-pdf/renderer）
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { renderToBuffer, createElement } from '@react-pdf/renderer';
+import { renderToBuffer } from '@react-pdf/renderer';
+import React from 'react';
 import { QuotationPdf } from '@/components/pdf-templates/QuotationPdf';
 import { getBrowserSupabase, isSupabaseConfigured } from '@/lib/supabase/client';
 import { summarizeQuotation } from '@/lib/calculations/priceEngine';
@@ -46,7 +47,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ no: 
       exchangeRate: Number(header.exchange_rate ?? 1),
     });
 
-    const doc = createElement(QuotationPdf as any, {
+    const doc = React.createElement(QuotationPdf, {
       kind, company: company as CompanyProfile, customer: customer as Customer,
       items: (items ?? []) as QuotationItem[], summary, terms: (terms ?? []) as TermsTemplate[],
       meta: {
@@ -74,3 +75,4 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ no: 
     return NextResponse.json({ error: 'PDF generation failed', detail: e?.message }, { status: 500 });
   }
 }
+
