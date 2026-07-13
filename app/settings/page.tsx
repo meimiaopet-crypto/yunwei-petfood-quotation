@@ -376,7 +376,7 @@ function TermsForm({ onSave }: { onSave: () => void }) {
           </Card>
         )}
         <div className="flex justify-between">
-          <Button variant="secondary" onClick={addNew}>+ 新增条款</Button>
+          <Button variant="outline" onClick={addNew}>+ 新增条款</Button>
           <Button onClick={save} disabled={saving}>
             <Save className="w-4 h-4" />{saving ? '保存中…' : '保存'}
           </Button>
@@ -477,7 +477,7 @@ function CategoryForm({ onSave }: { onSave: () => void }) {
           </div>
         )}
         <div className="flex justify-between">
-          <Button variant="secondary" onClick={addNew}>+ 新增大类</Button>
+          <Button variant="outline" onClick={addNew}>+ 新增大类</Button>
           <Button onClick={save} disabled={saving}>
             <Save className="w-4 h-4" />{saving ? '保存中…' : '保存'}
           </Button>
