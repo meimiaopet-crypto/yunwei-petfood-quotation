@@ -13,8 +13,8 @@ import type { Locale, Customer, Product, ProductTierPrice, QuotationItem, TermsT
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: NextRequest, { params }: { params: { no: string } }) {
-  const { no } = params;
+export async function GET(req: NextRequest, { params }: { params: Promise<{ no: string }> }) {
+  const { no } = await params;
   const lang = (req.nextUrl.searchParams.get('lang') ?? 'en') as Locale;
   const kind = (req.nextUrl.searchParams.get('kind') ?? 'quotation') as 'quotation' | 'pi';
 
@@ -63,7 +63,9 @@ export async function GET(req: NextRequest, { params }: { params: { no: string }
     });
 
     const buf = await renderToBuffer(doc as any);
-    return new NextResponse(buf, {
+    // Next.js 15 期望 Uint8Array 而非 Node Buffer
+    const body = new Uint8Array(buf);
+    return new NextResponse(body, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `${kind === 'pi' ? 'inline' : 'attachment'}; filename="${no}_${kind}_${lang}.pdf"`,

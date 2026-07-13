@@ -17,11 +17,11 @@ const LANG_HEADER: Record<Locale, Record<string, string>> = {
   vi: { quoteNo: 'Số báo giá', date: 'Ngày', validUntil: 'Có hiệu lực đến', customer: 'Khách hàng', product: 'Tên sản phẩm', spec: 'Quy cách', qty: 'Số lượng', unit: 'Đơn vị', ctns: 'Số thùng', price: 'Đơn giá', amount: 'Thành tiền' },
 };
 
-export async function GET(req: NextRequest, { params }: { params: { no: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ no: string }> }) {
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ error: 'Supabase not configured' }, { status: 503 });
   }
-  const { no } = params;
+  const { no } = await params;
   const lang = (req.nextUrl.searchParams.get('lang') ?? 'en') as Locale;
   const H = LANG_HEADER[lang];
 
