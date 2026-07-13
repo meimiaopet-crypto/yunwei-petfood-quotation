@@ -73,7 +73,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ no: 
       },
     });
   } catch (e: any) {
-    return NextResponse.json({ error: 'PDF generation failed', detail: e?.message }, { status: 500 });
+    console.error('[PDF] error stack:', e?.stack);
+    return NextResponse.json({
+      error: 'PDF generation failed',
+      detail: e?.message,
+      stack: (e?.stack || '').split('\n').slice(0, 5).join('\n'),
+    }, { status: 500 });
   }
 }
 
