@@ -4,7 +4,6 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { renderToBuffer } from '@react-pdf/renderer';
-import React from 'react';
 import { QuotationPdf } from '@/components/pdf-templates/QuotationPdf';
 import { getBrowserSupabase, isSupabaseConfigured } from '@/lib/supabase/client';
 import { summarizeQuotation } from '@/lib/calculations/priceEngine';
@@ -47,7 +46,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ no: 
       exchangeRate: Number(header.exchange_rate ?? 1),
     });
 
-    const doc = React.createElement(QuotationPdf, {
+    // 直接调用组件函数（而不是 React.createElement 包装），
+    // 这样 renderToBuffer 拿到的是真正的 Document 元素而不是 component wrapper
+    const doc = (QuotationPdf as any)({
       kind, company: company as CompanyProfile, customer: customer as Customer,
       items: (items ?? []) as QuotationItem[], summary, terms: (terms ?? []) as TermsTemplate[],
       meta: {
@@ -62,7 +63,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ no: 
       },
     });
 
-    const buf = await renderToBuffer(doc as any);
+    const buf = await renderToBuffer(doc);
     // Next.js 15 期望 Uint8Array 而非 Node Buffer
     const body = new Uint8Array(buf);
     return new NextResponse(body, {
