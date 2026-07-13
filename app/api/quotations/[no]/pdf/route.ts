@@ -1,6 +1,7 @@
 /**
  * GET /api/quotations/[no]/pdf?lang=en&kind=quotation|pi
  * 服务端渲染 Quotation / PI PDF（@react-pdf/renderer）
+ * 健壮版本：所有字段 null-safe，所有缺失都用兜底值
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { renderToBuffer } from '@react-pdf/renderer';
@@ -12,15 +13,27 @@ import type { Locale, Customer, Product, ProductTierPrice, QuotationItem, TermsT
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// 兜底常量
+const VALID_INCOTERMS = ['FOB', 'CIF', 'CFR', 'EXW'] as const;
+const VALID_LOGISTICS = ['海运', '空运', '陆运'] as const;
+const VALID_CURRENCY = ['USD', 'CNY', 'VND', 'MYR', 'THB', 'SAR', 'AED'] as const;
+const VALID_LOCALE = ['zh', 'en', 'vi'] as const;
+
+const MOCK_COMPANY: CompanyProfile = {
+  id: 'mock', name_zh: '邢台云威进出口有限公司', name_en: 'Xingtai Yunwei Import and Export Co., Ltd.',
+  address_zh: '', address_en: '', phone: '', email: '', website: '',
+  logo_url: null, seal_url: null, default_locale: 'zh',
+  bank_info: null,
+};
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ no: string }> }) {
   const { no } = await params;
-  const lang = (req.nextUrl.searchParams.get('lang') ?? 'en') as Locale;
+  const langRaw = req.nextUrl.searchParams.get('lang') ?? 'en';
   const kind = (req.nextUrl.searchParams.get('kind') ?? 'quotation') as 'quotation' | 'pi';
 
   if (!isSupabaseConfigured()) {
-    // 演示环境：返回说明
     return NextResponse.json(
-      { error: 'Supabase not configured', message: 'PDF 生成需要先连接 Supabase 数据库。请在 .env.local 配置 NEXT_PUBLIC_SUPABASE_URL 后使用。' },
+      { error: 'Supabase not configured', message: 'PDF 生成需要先连接 Supabase 数据库。' },
       { status: 503 },
     );
   }
@@ -28,14 +41,21 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ no: 
   try {
     const sb = getBrowserSupabase();
     const { data: header } = await sb.from('quotations').select('*').eq('quote_no', no).single();
-    if (!header) return NextResponse.json({ error: 'Quotation not found' }, { status: 404 });
+    if (!header) {
+      return NextResponse.json({ error: 'Quotation not found', quote_no: no }, { status: 404 });
+    }
 
-    const [{ data: items }, { data: customer }, { data: company }, { data: terms }] = await Promise.all([
+    // 四个并行查询全部改用 maybeSingle()，避免 null 触发 .single() 错误
+    const [itemsRes, customerRes, companyRes, termsRes] = await Promise.all([
       sb.from('quotation_items').select('*').eq('quotation_id', header.id).order('line_no'),
       sb.from('customers').select('*').eq('id', header.customer_id).maybeSingle(),
       sb.from('company_profile').select('*').limit(1).maybeSingle(),
       sb.from('terms_templates').select('*'),
     ]);
+    const items = itemsRes.data ?? [];
+    const customer = customerRes.data;
+    const company = companyRes.data ?? MOCK_COMPANY;
+    const terms = termsRes.data ?? [];
 
     const summary = summarizeQuotation({
       items: (items ?? []) as QuotationItem[],
@@ -46,44 +66,41 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ no: 
       exchangeRate: Number(header.exchange_rate ?? 1),
     });
 
-    // 直接调用组件函数（而不是 React.createElement 包装），
-    // 这样 renderToBuffer 拿到的是真正的 Document 元素而不是 component wrapper
-    // 兜底：把 incoterms/logistics_type/currency/language 规整为有效值
-    const safeIncoterms = (['FOB', 'CIF', 'CFR', 'EXW'] as const).includes(header.incoterms as any)
-      ? header.incoterms : 'FOB';
-    const safeLogistics = (['海运', '空运', '陆运'] as const).includes(header.logistics_type as any)
-      ? header.logistics_type : '海运';
-    const safeCurrency = (['USD', 'CNY', 'VND', 'MYR', 'THB', 'SAR', 'AED'] as const).includes(header.currency as any)
-      ? header.currency : 'USD';
-    const safeLang = (['zh', 'en', 'vi'] as const).includes(lang as any) ? lang : 'en';
-
-    // 用 mock 数据兜底 company + customer + terms，避免数据库里没有时崩溃
-    const safeCompany = company ?? {
-      id: 'mock', name_zh: '邢台云威进出口有限公司', name_en: 'Xingtai Yunwei Import and Export Co., Ltd.',
-      address_zh: '', address_en: '', phone: '', email: '', website: '',
-      logo_url: null, seal_url: null, default_locale: 'zh' as const,
-      bank_info: null,
-    };
-    const safeTerms = (terms ?? []) as TermsTemplate[];
+    // === 核心：把所有可能 undefined 的字段规整为安全值 ===
+    const safeLang: Locale = (VALID_LOCALE as readonly string[]).includes(langRaw) ? (langRaw as Locale) : 'en';
+    const safeIncoterms = (VALID_INCOTERMS as readonly string[]).includes(header.incoterms as string) ? header.incoterms as any : 'FOB';
+    const safeLogistics = (VALID_LOGISTICS as readonly string[]).includes(header.logistics_type as string) ? header.logistics_type as any : '海运';
+    const safeCurrency = (VALID_CURRENCY as readonly string[]).includes(header.currency as string) ? header.currency as any : 'USD';
 
     const doc = (QuotationPdf as any)({
-      kind, company: safeCompany as any, customer: customer as Customer | null,
-      items: (items ?? []) as QuotationItem[], summary, terms: safeTerms,
+      kind,
+      company: company as CompanyProfile,
+      customer: customer as Customer | null,
+      items: items as QuotationItem[],
+      summary,
+      terms: terms as TermsTemplate[],
       meta: {
-        quoteNo: header.quote_no ?? 'DRAFT', piNo: header.pi_no, date: header.created_at?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
-        validUntil: header.valid_until ?? new Date().toISOString().slice(0, 10),
-        language: safeLang as any, currency: safeCurrency as any,
-        incoterms: safeIncoterms as any, portOfLoading: header.port_of_loading ?? '',
-        portOfDestination: header.port_of_destination ?? '', paymentTerms: header.payment_terms ?? '',
-        leadTime: header.lead_time ?? '', logisticsCost: Number(header.logistics_cost ?? 0),
-        logisticsType: safeLogistics as any, taxRate: Number(header.tax_rate ?? 0),
+        quoteNo: String(header.quote_no ?? no),
+        piNo: header.pi_no ?? undefined,
+        date: String(header.created_at?.slice(0, 10) ?? new Date().toISOString().slice(0, 10)),
+        validUntil: String(header.valid_until ?? new Date().toISOString().slice(0, 10)),
+        language: safeLang,
+        currency: safeCurrency,
+        incoterms: safeIncoterms,
+        portOfLoading: String(header.port_of_loading ?? ''),
+        portOfDestination: String(header.port_of_destination ?? ''),
+        paymentTerms: String(header.payment_terms ?? ''),
+        leadTime: String(header.lead_time ?? ''),
+        logisticsCost: Number(header.logistics_cost ?? 0),
+        logisticsType: safeLogistics,
+        taxRate: Number(header.tax_rate ?? 0),
         insuranceRate: Number(header.insurance_rate ?? 0.003),
-        otherCharges: Number(header.other_charges ?? 0), notes: header.notes ?? '',
+        otherCharges: Number(header.other_charges ?? 0),
+        notes: String(header.notes ?? ''),
       },
     });
 
     const buf = await renderToBuffer(doc);
-    // Next.js 15 期望 Uint8Array 而非 Node Buffer
     const body = new Uint8Array(buf);
     return new NextResponse(body, {
       headers: {
@@ -92,13 +109,22 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ no: 
       },
     });
   } catch (e: any) {
-    console.error('[PDF] error:', e);
-    return NextResponse.json({
+    // 完整 dump 错误对象
+    const dump = {
       error: 'PDF generation failed',
       detail: e?.message,
       name: e?.name,
-      str: (() => { try { return JSON.stringify(e, Object.getOwnPropertyNames(e)).slice(0, 3000); } catch { return String(e); } })(),
-    }, { status: 500 });
+      type: typeof e,
+      stringified: (() => {
+        try { return JSON.stringify(e, Object.getOwnPropertyNames(e ?? {})).slice(0, 3000); }
+        catch { return String(e); }
+      })(),
+      stringified2: (() => {
+        try { return JSON.stringify({ message: e?.message, stack: e?.stack, cause: e?.cause, ...e }, null, 2).slice(0, 3000); }
+        catch { return String(e?.stack ?? ''); }
+      })(),
+    };
+    console.error('[PDF error]', JSON.stringify(dump));
+    return NextResponse.json(dump, { status: 500 });
   }
 }
-
