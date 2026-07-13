@@ -179,7 +179,7 @@ export function QuotationPdf({ kind, company, customer, items, summary, meta, te
             <Text style={{ fontSize: 9 }}>{formatMoney(summary.subtotal, meta.currency, lang)}</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={{ fontSize: 9, color: '#64748B' }}>{t.freight[lang]} ({tLogistics[meta.logisticsType][lang]})</Text>
+            <Text style={{ fontSize: 9, color: '#64748B' }}>{t.freight[lang]}{meta.logisticsType ? ` (${tLogistics[meta.logisticsType]?.[lang] ?? meta.logisticsType})` : ''}</Text>
             <Text style={{ fontSize: 9 }}>{formatMoney(meta.logisticsCost, meta.currency, lang)}</Text>
           </View>
           {summary.insurance > 0 && (

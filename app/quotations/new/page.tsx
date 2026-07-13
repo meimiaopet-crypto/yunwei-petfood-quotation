@@ -24,6 +24,8 @@ const CURRENCIES: Currency[] = ['USD', 'CNY', 'VND', 'MYR', 'THB', 'SAR', 'AED']
 
 export default function NewQuotationPage() {
   const toast = useToast();
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => { setMounted(true); }, []);
   const [company, setCompany] = React.useState<CompanyProfile | null>(null);
   const [products, setProducts] = React.useState<Product[]>([]);
   const [tiers, setTiers] = React.useState<ProductTierPrice[]>([]);
@@ -139,9 +141,10 @@ export default function NewQuotationPage() {
     setItems((arr) => arr.filter((_, i) => i !== idx).map((it, i) => ({ ...it, line_no: i + 1 })));
   };
 
-  const handleSave = async () => {
-    if (!customerId) { toast.push({ type: 'warning', title: '请先选择客户' }); return; }
-    if (items.length === 0) { toast.push({ type: 'warning', title: '请至少添加一个产品' }); return; }
+  const [savedQuoteNo, setSavedQuoteNo] = React.useState<string | null>(null);
+  const handleSave = async (): Promise<string | null> => {
+    if (!customerId) { toast.push({ type: 'warning', title: '请先选择客户' }); return null; }
+    if (items.length === 0) { toast.push({ type: 'warning', title: '请至少添加一个产品' }); return null; }
     const q: Quotation = {
       quote_no: quoteNo, customer_id: customerId, status, currency,
       language: previewLang, incoterms, port_of_loading: portOfLoading,
@@ -154,8 +157,17 @@ export default function NewQuotationPage() {
       lost_reason: null, version: 1, parent_quote_id: null, created_by: 'demo-user',
       sent_at: null, items, selected_term_ids: selectedTermIds,
     };
-    await data.quotations.save(q);
-    toast.push({ type: 'success', title: '草稿已保存', description: q.quote_no });
+    try {
+      const saved = await data.quotations.save(q);
+      setSavedQuoteNo(saved.quote_no);
+      setQuoteNo(saved.quote_no);
+      toast.push({ type: 'success', title: '草稿已保存', description: saved.quote_no });
+      return saved.quote_no;
+    } catch (e: any) {
+      console.error('[handleSave] failed', e);
+      toast.push({ type: 'error', title: '保存失败', description: e?.message || String(e) });
+      return null;
+    }
   };
 
   const filteredProducts = products.filter((p) => {
@@ -513,12 +525,23 @@ export default function NewQuotationPage() {
   );
 
   // ---- handlers for actions ----
-  function downloadPdf(kind: 'quotation' | 'pi') {
-    const url = `/api/quotations/${quoteNo}/pdf?lang=${previewLang}&kind=${kind}`;
+  async function downloadPdf(kind: 'quotation' | 'pi') {
+    // 第一次导出：自动先保存草稿（保证数据库里有该 quote_no）
+    let useNo = savedQuoteNo;
+    if (!useNo) {
+      useNo = await handleSave();
+      if (!useNo) return; // 保存失败，不打开
+    }
+    const url = `/api/quotations/${encodeURIComponent(useNo)}/pdf?lang=${previewLang}&kind=${kind}`;
     window.open(url, '_blank');
   }
-  function downloadExcel() {
-    const url = `/api/quotations/${quoteNo}/xlsx?lang=${previewLang}`;
+  async function downloadExcel() {
+    let useNo = savedQuoteNo;
+    if (!useNo) {
+      useNo = await handleSave();
+      if (!useNo) return;
+    }
+    const url = `/api/quotations/${encodeURIComponent(useNo)}/xlsx?lang=${previewLang}`;
     window.open(url, '_blank');
   }
   function copyLink() {

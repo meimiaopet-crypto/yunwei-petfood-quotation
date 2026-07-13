@@ -13,3 +13,4 @@ dist
 .vscode
 supabase/.branches
 supabase/.temp
+tsconfig.tsbuildinfo

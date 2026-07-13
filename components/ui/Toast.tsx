@@ -12,14 +12,21 @@ const ToastContext = React.createContext<{
 
 export function useToast() {
   const ctx = React.useContext(ToastContext);
+  // SSR-safe：服务端渲染时返回 noop push，避免 throw
+  if (typeof window === 'undefined') {
+    return { push: (_t: Omit<Toast, 'id'>) => { /* noop on server */ } };
+  }
   if (!ctx) throw new Error('useToast must be used within <ToastProvider>');
   return ctx;
 }
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = React.useState<Toast[]>([]);
+  // 用 ref 自增 id，避开 SSR/CSR Date.now() 漂移
+  const idRef = React.useRef(0);
   const push = React.useCallback((t: Omit<Toast, 'id'>) => {
-    const id = Date.now() + Math.random();
+    idRef.current += 1;
+    const id = idRef.current;
     setToasts((cur) => [...cur, { id, ...t }]);
     setTimeout(() => setToasts((cur) => cur.filter((x) => x.id !== id)), 4000);
   }, []);
@@ -28,7 +35,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ push }}>
       {children}
-      <div className="fixed top-4 right-4 z-[60] flex flex-col gap-2 max-w-sm">
+      <div className="fixed top-4 right-4 z-[60] flex flex-col gap-2 max-w-sm" suppressHydrationWarning>
         {toasts.map((t) => {
           const Icon = t.type === 'success' ? CheckCircle2 : t.type === 'warning' ? AlertTriangle : t.type === 'error' ? XCircle : Info;
           const tone = t.type === 'success' ? 'border-green-200 bg-green-50 text-green-800'
