@@ -3,6 +3,11 @@ const nextConfig = {
   reactStrictMode: true,
   experimental: {
     serverActions: { bodySizeLimit: '10mb' },
+    // 强制让 @react-pdf/renderer 用项目 node_modules 的 React 18，
+    // 避免被解析到 Next 15 内置的 React 19（react-builtin）。
+    // React 19 的 element 标记与 @react-pdf/renderer 4.x 的 reconciler-23 不兼容
+    // （Minified React error #31）。
+    serverComponentsExternalPackages: ['@react-pdf/renderer'],
   },
   images: {
     remotePatterns: [
