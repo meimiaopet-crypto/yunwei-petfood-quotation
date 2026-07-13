@@ -73,11 +73,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ no: 
       },
     });
   } catch (e: any) {
-    console.error('[PDF] error stack:', e?.stack);
+    console.error('[PDF] error:', e);
     return NextResponse.json({
       error: 'PDF generation failed',
       detail: e?.message,
-      stack: (e?.stack || '').split('\n').slice(0, 5).join('\n'),
+      name: e?.name,
+      keys: e ? Object.keys(e).join(',') : '',
+      str: (() => { try { return JSON.stringify(e, Object.getOwnPropertyNames(e)).slice(0, 2000); } catch { return String(e); } })(),
     }, { status: 500 });
   }
 }
