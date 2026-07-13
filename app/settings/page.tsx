@@ -11,6 +11,8 @@ import { getBrowserSupabase, isSupabaseConfigured } from '@/lib/supabase/client'
 
 export default function SettingsPage() {
   const [tab, setTab] = React.useState('company');
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => { setMounted(true); }, []);
   const toast = useToast();
 
   return (
@@ -18,7 +20,7 @@ export default function SettingsPage() {
       <div>
         <h1 className="text-xl font-semibold">系统设置</h1>
         <p className="text-sm text-muted mt-0.5">公司信息、费率、条款模板、产品大类</p>
-        {!isSupabaseConfigured() && (
+        {mounted && !isSupabaseConfigured() && (
           <div className="mt-2 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-2">
             ⚠️ Supabase 未配置，设置仅保存在浏览器中（刷新后丢失）。请在 .env.local 配置 NEXT_PUBLIC_SUPABASE_URL 后使用真实保存。
           </div>
