@@ -2,18 +2,22 @@
  * Quotation / PI PDF 模板（@react-pdf/renderer）
  * 支持中 / EN / VI 三语言 + 完整 PI 信息（银行账户/受益人/公章）
  */
+import path from 'path';
 import { Document, Page, Text, View, StyleSheet, Image, Font } from '@react-pdf/renderer';
 import { t, tIncoterm, tLogistics, formatMoney, formatDate } from '@/lib/i18n/outputTranslations';
 import type { CompanyProfile, Customer, QuotationItem, TermsTemplate, Currency, Locale, Incoterm, LogisticsType } from '@/types';
 
-// 字体（生产环境替换为本地 Noto Sans CJK）
+// 字体：使用本地打包的 Noto Sans SC（同时覆盖拉丁字母 + 简体中文），
+// 彻底避免运行时从 Google Fonts 拉取（gstatic URL 会失效/超时导致 500）。
+// 字体文件位于 assets/fonts/，通过 next.config 的 outputFileTracingIncludes
+// 确保被打包进 Vercel serverless function。
+const FONT_DIR = path.join(process.cwd(), 'assets', 'fonts');
 Font.register({
   family: 'Noto Sans CJK SC',
-  src: 'https://fonts.gstatic.com/s/notosanssc/v36/k3kCo84MPvpLmixcA63oeAL7Iqp5IZJF9bmaG9_FnYg.woff2',
-});
-Font.register({
-  family: 'Noto Sans',
-  src: 'https://fonts.gstatic.com/s/notosans/v28/o-0IIpQlx3QUlC5A4PNb4j5Ba_2c7A.woff2',
+  fonts: [
+    { src: path.join(FONT_DIR, 'NotoSansSC-Regular.woff2'), fontWeight: 'normal' },
+    { src: path.join(FONT_DIR, 'NotoSansSC-Bold.woff2'), fontWeight: 'bold' },
+  ],
 });
 
 const styles = StyleSheet.create({

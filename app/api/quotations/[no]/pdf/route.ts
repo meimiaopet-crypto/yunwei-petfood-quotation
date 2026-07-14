@@ -4,7 +4,9 @@
  * 健壮版本：所有字段 null-safe，所有缺失都用兜底值
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { renderToBuffer } from '@react-pdf/renderer';
+import { createElement } from 'react';
+import { Readable } from 'stream';
+import { renderToStream } from '@react-pdf/renderer';
 import { QuotationPdf } from '@/components/pdf-templates/QuotationPdf';
 import { getBrowserSupabase, isSupabaseConfigured } from '@/lib/supabase/client';
 import { summarizeQuotation } from '@/lib/calculations/priceEngine';
@@ -72,9 +74,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ no: 
     const safeLogistics = (VALID_LOGISTICS as readonly string[]).includes(header.logistics_type as string) ? header.logistics_type as any : '海运';
     const safeCurrency = (VALID_CURRENCY as readonly string[]).includes(header.currency as string) ? header.currency as any : 'USD';
 
-    // QuotationPdf 内部已用 React.createElement 构造，得到的 element 标记是
-    // 标准 react.element（Symbol.for("react.element")），@react-pdf reconciler 能识别
-    const doc = QuotationPdf({
+    // 用 React.createElement 构造根元素。项目已统一到 React 19，
+    // 与 Next 15 内置 react-builtin 及 @react-pdf/reconciler(选 reconciler-33)
+    // 的 react.transitional.element 符号一致，不再触发 error #31。
+    const doc = createElement(QuotationPdf, {
       kind,
       company: company as CompanyProfile,
       customer: customer as Customer | null,
@@ -100,14 +103,19 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ no: 
         otherCharges: Number(header.other_charges ?? 0),
         notes: String(header.notes ?? ''),
       },
-    });
+    } as any);
 
-    const buf = await renderToBuffer(doc);
-    const body = new Uint8Array(buf);
-    return new NextResponse(body, {
+    // 流式响应：@react-pdf 的 renderToStream 返回 Node.js Readable，
+    // 用 Readable.toWeb 转成 Web ReadableStream 直接透传给客户端。
+    // 这样绕过 Vercel Functions 4.5MB 响应体硬限制（FUNCTION_RESPONSE_PAYLOAD_TOO_LARGE），
+    // 同时避免把整份 PDF 缓存进内存。
+    const nodeStream = (await renderToStream(doc as any)) as unknown as Readable;
+    const webStream = Readable.toWeb(nodeStream) as unknown as ReadableStream;
+    return new NextResponse(webStream, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `${kind === 'pi' ? 'inline' : 'attachment'}; filename="${no}_${kind}_${safeLang}.pdf"`,
+        'Cache-Control': 'no-store',
       },
     });
   } catch (e: any) {
