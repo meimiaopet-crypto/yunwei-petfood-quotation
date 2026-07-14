@@ -290,10 +290,30 @@ export const data = {
       if (items?.length) {
         await sb.from('quotation_items').delete().eq('quotation_id', savedId);
         const itemRows = items.map((i: any) => {
-          const { id: _iid, ...row } = i;
-          return { ...row, quotation_id: savedId };
+          const { id: _iid, grossProfit: _gp, grossMargin: _gm, ...row } = i;
+          // 仅保留数据库实际存在的列，防止额外字段导致 insert 失败
+          const clean = {
+            product_id: row.product_id ?? null,
+            line_no: row.line_no ?? 0,
+            product_name_output: row.product_name_output ?? '',
+            sku: row.sku ?? '',
+            spec: row.spec ?? '',
+            unit: row.unit ?? '',
+            quantity: row.quantity ?? 0,
+            cartons: row.cartons ?? 0,
+            cost_price: row.cost_price ?? 0,
+            margin_rate: row.margin_rate ?? 0,
+            unit_price: row.unit_price ?? 0,
+            total_price: row.total_price ?? 0,
+            gross_weight: row.gross_weight ?? 0,
+            cbm: row.cbm ?? 0,
+            notes: row.notes ?? '',
+            quotation_id: savedId,
+          };
+          return clean;
         });
-        await sb.from('quotation_items').insert(itemRows);
+        const { error: itemsError } = await sb.from('quotation_items').insert(itemRows);
+        if (itemsError) throw itemsError;
       }
       return { ...q, id: savedId };
     },
