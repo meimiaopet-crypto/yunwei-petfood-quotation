@@ -247,28 +247,37 @@ export const data = {
     async save(q: Quotation): Promise<Quotation> {
       if (!isSupabaseConfigured()) return q; // 演示环境：仅返回
       const sb = getBrowserSupabase();
-      // 剔除不在 DB 表中的瞬态字段，避免 insert/update 报 42703 (column does not exist)
+      // 剔除瞬态字段：
       // - id: 由 DB 生成
       // - items: 单独存 quotation_items 表
-      // - selected_term_ids: 仅用于前端实时预览筛选，quotations 表无此列
-      const { id: _ignored, items, selected_term_ids, ...header } = q as Quotation & { selected_term_ids?: string[] };
+      // selected_term_ids 是真实持久化列（迁移 0002_add_selected_term_ids.sql），正常保留；
+      // 若用户尚未执行该迁移（列不存在），insert/update 会报 42703，此时降级剔除该字段重试，
+      // 保证保存链路不中断（只是暂未持久化勾选，PDF 回退渲染全部条款）。
+      const { id: _ignored, items, ...header } = q as Quotation & { selected_term_ids?: string[] };
+      if ((header as { selected_term_ids?: string[] }).selected_term_ids === undefined) {
+        (header as { selected_term_ids?: string[] }).selected_term_ids = [];
+      }
+
       // 用 quote_no 查现有 id，避免重复 insert
       const { data: existing } = await sb.from('quotations')
         .select('id').eq('quote_no', q.quote_no).maybeSingle();
-      let savedId: string;
-      if (existing?.id) {
-        // 更新现有
-        const { data: updated, error } = await sb.from('quotations')
-          .update(header).eq('id', existing.id).select().single();
-        if (error) throw error;
-        savedId = updated!.id;
-      } else {
-        // 插入新
-        const { data: inserted, error } = await sb.from('quotations')
-          .insert(header).select().single();
-        if (error) throw error;
-        savedId = inserted!.id;
+
+      const upsert = async (h: Record<string, unknown>) => {
+        if (existing?.id) {
+          return sb.from('quotations').update(h).eq('id', existing.id).select().single();
+        }
+        return sb.from('quotations').insert(h).select().single();
+      };
+
+      let res = await upsert(header as Record<string, unknown>);
+      // 容错：列不存在时降级（剔除 selected_term_ids 后重试一次）
+      if (res.error && /column "selected_term_ids" does not exist/i.test(res.error.message)) {
+        const { selected_term_ids, ...fallback } = header as Record<string, unknown> & { selected_term_ids?: unknown };
+        res = await upsert(fallback);
       }
+      if (res.error) throw res.error;
+      const savedId = (res.data as { id: string }).id;
+
       // 同步明细：删旧 → 插新
       if (items?.length) {
         await sb.from('quotation_items').delete().eq('quotation_id', savedId);

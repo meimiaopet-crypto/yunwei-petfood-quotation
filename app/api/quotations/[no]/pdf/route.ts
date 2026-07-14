@@ -10,6 +10,7 @@ import { renderToStream } from '@react-pdf/renderer';
 import { QuotationPdf } from '@/components/pdf-templates/QuotationPdf';
 import { getBrowserSupabase, isSupabaseConfigured } from '@/lib/supabase/client';
 import { summarizeQuotation } from '@/lib/calculations/priceEngine';
+import { filterTermsBySelection } from '@/lib/pdf/filterTerms';
 import type { Locale, Customer, Product, ProductTierPrice, QuotationItem, TermsTemplate, CompanyProfile } from '@/types';
 
 export const runtime = 'nodejs';
@@ -59,6 +60,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ no: 
     const company = companyRes.data ?? MOCK_COMPANY;
     const terms = termsRes.data ?? [];
 
+    // 按用户在「新建报价单」页勾选的条款过滤（DB 无该列 / 老数据空数组时回退渲染全部）
+    const selectedIds = (header as { selected_term_ids?: unknown }).selected_term_ids;
+    const filteredTerms = filterTermsBySelection(terms as TermsTemplate[], selectedIds);
+
     const summary = summarizeQuotation({
       items: (items ?? []) as QuotationItem[],
       logisticsCost: Number(header.logistics_cost ?? 0),
@@ -83,7 +88,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ no: 
       customer: customer as Customer | null,
       items: items as QuotationItem[],
       summary,
-      terms: terms as TermsTemplate[],
+      terms: filteredTerms as TermsTemplate[],
       meta: {
         quoteNo: String(header.quote_no ?? no),
         piNo: header.pi_no ?? undefined,
