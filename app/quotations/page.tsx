@@ -167,6 +167,7 @@ export default function QuotationsListPage() {
                       <td className="px-4 py-2.5 text-right">
                         <div className="inline-flex gap-1">
                           <button className="p-1.5 rounded hover:bg-muted/40" title="查看" onClick={() => window.open(`/quotations/${encodeURIComponent(q.quote_no)}/view`, '_blank')}><Eye className="w-4 h-4" /></button>
+                          <Link href={`/quotations/new?no=${encodeURIComponent(q.quote_no)}`} className="p-1.5 rounded hover:bg-green-50 text-green-600" title="编辑"><Edit2 className="w-4 h-4" /></Link>
                           <button className="p-1.5 rounded hover:bg-blue-50 text-blue-600" title="下载 PDF" onClick={() => downloadPdf(q)}><Download className="w-4 h-4" /></button>
                           <button className="p-1.5 rounded hover:bg-red-50 text-danger" title="删除" onClick={() => removeDraft(q)}><Trash2 className="w-4 h-4" /></button>
                         </div>

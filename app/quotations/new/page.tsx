@@ -24,6 +24,8 @@ const CURRENCIES: Currency[] = ['USD', 'CNY', 'VND', 'MYR', 'THB', 'SAR', 'AED']
 
 export default function NewQuotationPage() {
   const toast = useToast();
+  const [editNo] = React.useState<string | null>(() =>
+    typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('no') : null);
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => { setMounted(true); }, []);
   const [company, setCompany] = React.useState<CompanyProfile | null>(null);
@@ -74,7 +76,53 @@ export default function NewQuotationPage() {
       setInsuranceRate(Number(rts.default_insurance_rate ?? 0.003));
       setLeadTime(rts.default_lead_time ?? leadTime);
       setValidDays(Number(rts.default_valid_days ?? 30));
-      setQuoteNo(nextSeq([], new Date(), 'QT'));
+
+      // 编辑模式：?no=YW-QT-... 回填已有草稿
+      const editNo = new URLSearchParams(window.location.search).get('no');
+      const allQs = data.isMock() ? [] : await data.quotations.list();
+
+      if (editNo) {
+        const q = await data.quotations.getByNo(editNo);
+        if (q) {
+          setQuoteNo(q.quote_no);
+          setSavedQuoteNo(q.quote_no);
+          setCustomerId(q.customer_id);
+          setStatus(q.status);
+          setCurrency(q.currency);
+          setPreviewLang(q.language);
+          setIncoterms(q.incoterms);
+          setPortOfLoading(q.port_of_loading ?? '');
+          setPortOfDestination(q.port_of_destination ?? '');
+          setPaymentTerms(q.payment_terms ?? '');
+          setLeadTime(q.lead_time ?? leadTime);
+          setValidDays(q.valid_days ?? 30);
+          // 反推报价日期：date + valid_days = valid_until
+          const base = new Date(q.valid_until ?? new Date().toISOString());
+          base.setDate(base.getDate() - (q.valid_days ?? 0));
+          setDate(base.toISOString().slice(0, 10));
+          setExchangeRate(Number(q.exchange_rate ?? 1));
+          setExchangeRateLocked(Boolean(q.exchange_rate_locked));
+          setLogisticsCost(Number(q.logistics_cost ?? 0));
+          setLogisticsType(q.logistics_type);
+          setTaxRate(Number(q.tax_rate ?? 0));
+          setInsuranceRate(Number(q.insurance_rate ?? 0.003));
+          setOtherCharges(Number(q.other_charges ?? 0));
+          setNotes(q.notes ?? '');
+          setInternalNotes(q.internal_notes ?? '');
+          setItems((q.items ?? []).map((it) => ({ ...it })));
+          setSelectedTermIds((q as unknown as { selected_term_ids?: string[] }).selected_term_ids ?? []);
+        } else {
+          setQuoteNo(nextSeq([], new Date(), 'QT'));
+        }
+      } else {
+        // 新建：基于今天已用的最大流水号 +1，避免同天撞号覆盖
+        const dateKey = (() => {
+          const d = new Date();
+          return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+        })();
+        const todayNos = (allQs ?? []).map((x) => x.quote_no).filter((n) => n.includes(dateKey));
+        setQuoteNo(nextSeq(todayNos, new Date(), 'QT'));
+      }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -182,7 +230,7 @@ export default function NewQuotationPage() {
       <div className="lg:col-span-3 p-6 space-y-4 overflow-y-auto">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold">新建报价单</h1>
+            <h1 className="text-xl font-semibold">{editNo ? '编辑报价单' : '新建报价单'}</h1>
             <p className="text-sm text-muted mt-0.5">报价单号：<span className="font-mono">{quoteNo}</span></p>
           </div>
           <div className="flex items-center gap-2">
