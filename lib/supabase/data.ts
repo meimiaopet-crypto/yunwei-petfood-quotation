@@ -247,7 +247,11 @@ export const data = {
     async save(q: Quotation): Promise<Quotation> {
       if (!isSupabaseConfigured()) return q; // 演示环境：仅返回
       const sb = getBrowserSupabase();
-      const { id: _ignored, items, ...header } = q;
+      // 剔除不在 DB 表中的瞬态字段，避免 insert/update 报 42703 (column does not exist)
+      // - id: 由 DB 生成
+      // - items: 单独存 quotation_items 表
+      // - selected_term_ids: 仅用于前端实时预览筛选，quotations 表无此列
+      const { id: _ignored, items, selected_term_ids, ...header } = q as Quotation & { selected_term_ids?: string[] };
       // 用 quote_no 查现有 id，避免重复 insert
       const { data: existing } = await sb.from('quotations')
         .select('id').eq('quote_no', q.quote_no).maybeSingle();
