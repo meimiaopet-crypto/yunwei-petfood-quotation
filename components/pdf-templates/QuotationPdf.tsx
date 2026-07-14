@@ -22,9 +22,9 @@ const styles = StyleSheet.create({
   page:    { padding: 36, fontSize: 9, fontFamily: 'Noto Sans CJK SC', color: '#0F172A' },
   row:     { flexDirection: 'row' },
   header:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingBottom: 10, borderBottom: 2, borderBottomColor: '#2563EB' },
-  logo:    { width: 56, height: 56, backgroundColor: '#2563EB', color: '#fff', fontSize: 22, fontWeight: 700, textAlign: 'center', paddingTop: 14, borderRadius: 6 },
+  logo:    { width: 56, height: 56, marginRight: 10, backgroundColor: '#2563EB', color: '#fff', fontSize: 22, fontWeight: 700, textAlign: 'center', paddingTop: 14, borderRadius: 6 },
   companyName: { fontSize: 13, fontWeight: 700 },
-  companyInfo: { fontSize: 8, color: '#64748B', marginTop: 2, maxWidth: 240 },
+  companyInfo: { fontSize: 8, color: '#64748B', marginTop: 2, maxWidth: 360 },
   contactLine: { fontSize: 8, color: '#64748B', marginTop: 1 },
   title:   { fontSize: 22, color: '#2563EB', fontWeight: 700, letterSpacing: 1.5 },
   quoteNo: { fontSize: 10, fontFamily: 'Courier', marginTop: 4 },
@@ -97,7 +97,7 @@ export function QuotationPdf({ kind, company, customer, items, summary, meta, te
             {company.logo_url
               ? <Image src={company.logo_url} style={{ width: 56, height: 56, marginRight: 10 }} />
               : <View style={styles.logo}><Text>YW</Text></View>}
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={styles.companyName}>{lang === 'en' ? company.name_en : company.name_zh}</Text>
               <Text style={styles.companyInfo}>{lang === 'en' ? company.address_en : company.address_zh}</Text>
               <Text style={styles.contactLine}>{company.phone} · {company.email}</Text>
