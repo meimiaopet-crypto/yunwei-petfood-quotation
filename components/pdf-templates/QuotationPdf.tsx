@@ -7,17 +7,14 @@ import { Document, Page, Text, View, StyleSheet, Image, Font } from '@react-pdf/
 import { t, tIncoterm, tLogistics, formatMoney, formatDate } from '@/lib/i18n/outputTranslations';
 import type { CompanyProfile, Customer, QuotationItem, TermsTemplate, Currency, Locale, Incoterm, LogisticsType } from '@/types';
 
-// 字体：使用本地打包的 Noto Sans SC（同时覆盖拉丁字母 + 简体中文），
-// 彻底避免运行时从 Google Fonts 拉取（gstatic URL 会失效/超时导致 500）。
-// 字体文件位于 assets/fonts/，通过 next.config 的 outputFileTracingIncludes
-// 确保被打包进 Vercel serverless function。
-// 使用标准 TTF 格式（而非 woff2），WPS / Adobe Reader 兼容性更好。
+// 使用完整 Noto Sans CJK SC OTF 字体（不子集化），测试 WPS 兼容性。
+// 完整字体体积大，若此方案 WPS 仍异常，则需考虑换字体或多字体回退。
 const FONT_DIR = path.join(process.cwd(), 'assets', 'fonts');
 Font.register({
   family: 'Noto Sans CJK SC',
   fonts: [
-    { src: path.join(FONT_DIR, 'NotoSansSC-Regular.ttf'), fontWeight: 'normal' },
-    { src: path.join(FONT_DIR, 'NotoSansSC-Bold.ttf'), fontWeight: 'bold' },
+    { src: path.join(FONT_DIR, 'NotoSansSC-Regular.otf'), fontWeight: 'normal' },
+    { src: path.join(FONT_DIR, 'NotoSansSC-Bold.otf'), fontWeight: 'bold' },
   ],
 });
 
