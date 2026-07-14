@@ -244,6 +244,14 @@ export const data = {
         .eq('id', id).single();
       return data as Quotation;
     },
+    async getByNo(quoteNo: string): Promise<Quotation | null> {
+      if (!isSupabaseConfigured()) return null;
+      const sb = getBrowserSupabase();
+      const { data } = await sb.from('quotations')
+        .select('*, items:quotation_items(*), customer:customers(*)')
+        .eq('quote_no', quoteNo).single();
+      return data as Quotation;
+    },
     async save(q: Quotation): Promise<Quotation> {
       if (!isSupabaseConfigured()) return q; // 演示环境：仅返回
       const sb = getBrowserSupabase();
