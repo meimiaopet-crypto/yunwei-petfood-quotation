@@ -23,7 +23,7 @@ export function Sidebar() {
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center text-white font-bold text-sm">YW</div>
           <div>
-            <div className="text-sm font-semibold leading-none">云威报价</div>
+            <div className="text-sm font-semibold leading-none">云伟报价</div>
             <div className="text-[10px] text-muted mt-0.5">Quotation System</div>
           </div>
         </div>
