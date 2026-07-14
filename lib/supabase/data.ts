@@ -127,7 +127,7 @@ const MOCK_RATES: Record<string, string> = {
 };
 
 const MOCK_COMPANY: CompanyProfile = {
-  id: 'co1', name_zh: '邢台云威进出口有限公司', name_en: 'Xingtai Yunwei Import and Export Co., Ltd.',
+  id: 'co1', name_zh: '邢台云伟进出口有限公司', name_en: 'Xingtai Yunwei Import and Export Co., Ltd.',
   address_zh: '河北省邢台市桥西区中兴西大街 188 号',
   address_en: 'No.188 Zhongxing West Street, Qiaoxi District, Xingtai City, Hebei, China',
   phone: '+86-319-8888-6666', email: 'sales@xtyunwei.com', website: 'https://www.xtyunwei.com',
@@ -136,7 +136,7 @@ const MOCK_COMPANY: CompanyProfile = {
     usd: { beneficiary: 'Xingtai Yunwei Import and Export Co., Ltd.',
       bank_name: 'Bank of China, Hebei Branch', account_no: 'USD-1008-8888-9999-0001',
       swift: 'BKCHCNBJ45A', address: 'Shijiazhuang, Hebei, China' },
-    cny: { beneficiary: '邢台云威进出口有限公司', bank_name: '中国银行河北省分行',
+    cny: { beneficiary: '邢台云伟进出口有限公司', bank_name: '中国银行河北省分行',
       account_no: 'CNY-1008-6666-5555-0001', address: '石家庄市中山西路22号' },
   },
 };

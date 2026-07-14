@@ -23,7 +23,7 @@ const VALID_CURRENCY = ['USD', 'CNY', 'VND', 'MYR', 'THB', 'SAR', 'AED'] as cons
 const VALID_LOCALE = ['zh', 'en', 'vi'] as const;
 
 const MOCK_COMPANY: CompanyProfile = {
-  id: 'mock', name_zh: '邢台云威进出口有限公司', name_en: 'Xingtai Yunwei Import and Export Co., Ltd.',
+  id: 'mock', name_zh: '邢台云伟进出口有限公司', name_en: 'Xingtai Yunwei Import and Export Co., Ltd.',
   address_zh: '', address_en: '', phone: '', email: '', website: '',
   logo_url: null, seal_url: null, default_locale: 'zh',
   bank_info: null,

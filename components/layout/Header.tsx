@@ -7,7 +7,7 @@ export function Header() {
       <div className="flex items-center gap-2 text-sm text-muted">
         <span>工作台</span>
         <span>·</span>
-        <span>邢台云威进出口有限公司</span>
+        <span>邢台云伟进出口有限公司</span>
       </div>
       <div className="flex items-center gap-3">
         <button className="p-2 rounded-md hover:bg-muted/40" title="通知"><Bell className="w-4 h-4 text-muted" /></button>

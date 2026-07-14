@@ -1,4 +1,4 @@
-# 云威宠物食品报价系统 / Yunwei Petfood Quotation System
+# 云伟宠物食品报价系统 / Yunwei Petfood Quotation System
 
 > 中国宠物食品工厂面向东南亚/中东/东北亚 B 端批发客户的专业报价单（Quotation）和形式发票（Proforma Invoice）管理系统。
 > Next.js 15 + TypeScript + Tailwind + Shadcn-style UI + Supabase + @react-pdf/renderer + SheetJS
@@ -209,7 +209,7 @@ git push -u origin main
 
 ## 📞 联系
 
-邢台云威进出口有限公司 / Xingtai Yunwei Import and Export Co., Ltd.
+邢台云伟进出口有限公司 / Xingtai Yunwei Import and Export Co., Ltd.
 - 📧 sales@xtyunwei.com
 - 📞 +86-319-8888-6666
 - 🌐 https://www.xtyunwei.com

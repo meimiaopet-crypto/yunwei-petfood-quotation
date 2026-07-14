@@ -2,7 +2,7 @@
   "name": "yunwei-petfood-quotation",
   "version": "1.0.0",
   "private": true,
-  "description": "云威宠物食品外贸报价管理系统 / Yunwei Petfood Quotation & Proforma Invoice System",
+  "description": "云伟宠物食品外贸报价管理系统 / Yunwei Petfood Quotation & Proforma Invoice System",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

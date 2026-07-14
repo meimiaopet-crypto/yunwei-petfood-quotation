@@ -5,7 +5,7 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 
 export const metadata: Metadata = {
-  title: '云威宠物食品报价系统',
+  title: '云伟宠物食品报价系统',
   description: 'Quotation & Proforma Invoice System for Petfood Export',
 };
 
