@@ -22,11 +22,13 @@ const styles = StyleSheet.create({
   page:    { padding: 36, fontSize: 9, fontFamily: 'Noto Sans CJK SC', color: '#0F172A' },
   row:     { flexDirection: 'row' },
   header:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingBottom: 10, borderBottom: 2, borderBottomColor: '#2563EB' },
-  logo:    { width: 56, height: 56, marginRight: 10, backgroundColor: '#2563EB', color: '#fff', fontSize: 22, fontWeight: 700, textAlign: 'center', paddingTop: 14, borderRadius: 6 },
+  headerLeft: { flexDirection: 'row', alignItems: 'flex-start', flex: 1, marginRight: 20 },
+  headerRight: { alignItems: 'flex-end', flexShrink: 0 },
+  logo:    { width: 48, height: 48, marginRight: 10, backgroundColor: '#2563EB', color: '#fff', fontSize: 20, fontWeight: 700, textAlign: 'center', paddingTop: 12, borderRadius: 6 },
   companyName: { fontSize: 13, fontWeight: 700 },
   companyInfo: { fontSize: 8, color: '#64748B', marginTop: 2, maxWidth: 360 },
   contactLine: { fontSize: 8, color: '#64748B', marginTop: 1 },
-  title:   { fontSize: 22, color: '#2563EB', fontWeight: 700, letterSpacing: 1.5 },
+  title:   { fontSize: 18, color: '#2563EB', fontWeight: 700, letterSpacing: 1, textAlign: 'right' },
   quoteNo: { fontSize: 10, fontFamily: 'Courier', marginTop: 4 },
   date:    { fontSize: 8, color: '#64748B', marginTop: 4 },
 
@@ -93,18 +95,18 @@ export function QuotationPdf({ kind, company, customer, items, summary, meta, te
       <Page size="A4" style={styles.page}>
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.row}>
+          <View style={styles.headerLeft}>
             {company.logo_url
-              ? <Image src={company.logo_url} style={{ width: 56, height: 56, marginRight: 10 }} />
+              ? <Image src={company.logo_url} style={{ width: 48, height: 48, marginRight: 10 }} />
               : <View style={styles.logo}><Text>YW</Text></View>}
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={styles.companyName}>{lang === 'en' ? company.name_en : company.name_zh}</Text>
               <Text style={styles.companyInfo}>{lang === 'en' ? company.address_en : company.address_zh}</Text>
               <Text style={styles.contactLine}>{company.phone} · {company.email}</Text>
               {company.website && <Text style={styles.contactLine}>{company.website}</Text>}
             </View>
           </View>
-          <View>
+          <View style={styles.headerRight}>
             <Text style={styles.title}>{title}</Text>
             <Text style={styles.quoteNo}>{meta.quoteNo}</Text>
             {kind === 'pi' && meta.piNo && <Text style={styles.quoteNo}>PI: {meta.piNo}</Text>}
