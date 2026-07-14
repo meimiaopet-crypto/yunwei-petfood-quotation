@@ -10,7 +10,7 @@
 用法：
   <venv>/Scripts/python.exe scripts/subset_fonts.py
 依赖：fonttools, brotli, requests
-输出：assets/fonts/NotoSansSC-Regular.woff2, NotoSansSC-Bold.woff2
+输出：assets/fonts/NotoSansSC-Regular.ttf, NotoSansSC-Bold.ttf
 """
 import os
 import urllib.request
@@ -21,8 +21,8 @@ FONT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 
 # fontsource 提供的 Noto Sans SC（简体中文子集）woff2 源
 SOURCES = {
-    "NotoSansSC-Regular.woff2": "https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-sc/files/noto-sans-sc-chinese-simplified-400-normal.woff2",
-    "NotoSansSC-Bold.woff2": "https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-sc/files/noto-sans-sc-chinese-simplified-700-normal.woff2",
+    "NotoSansSC-Regular.ttf": "https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-sc/files/noto-sans-sc-chinese-simplified-400-normal.woff2",
+    "NotoSansSC-Bold.ttf": "https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-sc/files/noto-sans-sc-chinese-simplified-700-normal.woff2",
 }
 
 
@@ -52,7 +52,7 @@ def subset_one(name, url, unicodes):
     urllib.request.urlretrieve(url, tmp)  # 下载完整子集源
     font = TTFont(tmp)  # 读取 woff2（需 brotli）
     opt = Options()
-    opt.flavor = "woff2"
+    opt.flavor = None     # 输出标准 TTF，WPS / Adobe Reader 兼容性更好
     opt.desubroutinize = True
     opt.name_IDs = ["*"]
     opt.notdef_outline = True

@@ -11,12 +11,13 @@ import type { CompanyProfile, Customer, QuotationItem, TermsTemplate, Currency, 
 // 彻底避免运行时从 Google Fonts 拉取（gstatic URL 会失效/超时导致 500）。
 // 字体文件位于 assets/fonts/，通过 next.config 的 outputFileTracingIncludes
 // 确保被打包进 Vercel serverless function。
+// 使用标准 TTF 格式（而非 woff2），WPS / Adobe Reader 兼容性更好。
 const FONT_DIR = path.join(process.cwd(), 'assets', 'fonts');
 Font.register({
   family: 'Noto Sans CJK SC',
   fonts: [
-    { src: path.join(FONT_DIR, 'NotoSansSC-Regular.woff2'), fontWeight: 'normal' },
-    { src: path.join(FONT_DIR, 'NotoSansSC-Bold.woff2'), fontWeight: 'bold' },
+    { src: path.join(FONT_DIR, 'NotoSansSC-Regular.ttf'), fontWeight: 'normal' },
+    { src: path.join(FONT_DIR, 'NotoSansSC-Bold.ttf'), fontWeight: 'bold' },
   ],
 });
 
