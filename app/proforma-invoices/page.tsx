@@ -2,16 +2,48 @@
 import * as React from 'react';
 import { Card, CardContent, Badge } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Download, FileSpreadsheet, Plus } from 'lucide-react';
+import { Plus, Download } from 'lucide-react';
 import Link from 'next/link';
+import { useToast } from '@/components/ui/Toast';
+import { data } from '@/lib/supabase/data';
+import type { Quotation } from '@/types';
 
-const MOCK_PI = [
-  { piNo: 'YW-PI-20240710-001', quoteRef: 'YW-QT-20240710-001', customer: 'Viet Pet Co.', country: 'VN', amount: 24680, currency: 'USD', status: '已发送', date: '2024-07-10' },
-  { piNo: 'YW-PI-20240705-002', quoteRef: 'YW-QT-20240705-002', customer: 'Al Noor Pet',  country: 'SA', amount: 56400, currency: 'USD', status: '已收款', date: '2024-07-05' },
-];
+const STATUS_TONE: Record<string, 'gray' | 'blue' | 'orange' | 'green' | 'red' | 'yellow'> = {
+  草稿: 'gray', 已发送: 'blue', 谈判中: 'orange', 赢单: 'green', 输单: 'red', 过期: 'yellow', 已改版: 'gray',
+  已收款: 'green',
+};
 
 export default function ProformaInvoicesPage() {
+  const toast = useToast();
+  const [list, setList] = React.useState<Quotation[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const pis = await data.quotations.listPIs();
+        setList(pis);
+      } catch (e: any) {
+        toast.push({ type: 'error', title: '加载失败', description: e?.message });
+      } finally {
+        setLoading(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const amountOf = (q: Quotation) => {
+    const sub = (q.items ?? []).reduce((s, it) => s + (Number(it.total_price) || 0), 0);
+    return sub + Number(q.logistics_cost || 0) + Number(q.other_charges || 0);
+  };
+
+  const downloadPi = (q: Quotation) => {
+    const lang = q.language || 'en';
+    const quoteNo = encodeURIComponent(q.quote_no);
+    const url = `/api/quotations/${quoteNo}/pdf?lang=${lang}&kind=pi`;
+    window.open(url, '_blank');
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -23,36 +55,53 @@ export default function ProformaInvoicesPage() {
       </div>
       <Card>
         <CardContent className="p-0">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted">
-              <tr>
-                <th className="text-left px-4 py-2.5 font-medium">PI 编号</th>
-                <th className="text-left px-4 py-2.5 font-medium">关联报价单</th>
-                <th className="text-left px-4 py-2.5 font-medium">客户</th>
-                <th className="text-left px-4 py-2.5 font-medium">国家</th>
-                <th className="text-right px-4 py-2.5 font-medium">金额</th>
-                <th className="text-left px-4 py-2.5 font-medium">状态</th>
-                <th className="text-left px-4 py-2.5 font-medium">日期</th>
-                <th className="text-right px-4 py-2.5 font-medium">操作</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {MOCK_PI.map((pi) => (
-                <tr key={pi.piNo} className="hover:bg-muted/20">
-                  <td className="px-4 py-2.5 font-mono text-xs">{pi.piNo}</td>
-                  <td className="px-4 py-2.5 font-mono text-xs text-muted">{pi.quoteRef}</td>
-                  <td className="px-4 py-2.5 font-medium">{pi.customer}</td>
-                  <td className="px-4 py-2.5">{pi.country}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums">${pi.amount.toLocaleString()}</td>
-                  <td className="px-4 py-2.5"><Badge tone={pi.status === '已收款' ? 'green' : 'blue'}>{pi.status}</Badge></td>
-                  <td className="px-4 py-2.5 text-xs text-muted">{pi.date}</td>
-                  <td className="px-4 py-2.5 text-right">
-                    <Button size="sm" variant="outline"><Download className="w-3.5 h-3.5" />下载</Button>
-                  </td>
+          {loading ? (
+            <div className="p-10 text-center text-sm text-muted">加载中…</div>
+          ) : list.length === 0 ? (
+            <div className="p-10 text-center text-sm text-muted">
+              暂无形式发票，点击右上角「从报价单生成 PI」开始
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted">
+                <tr>
+                  <th className="text-left px-4 py-2.5 font-medium">PI 编号</th>
+                  <th className="text-left px-4 py-2.5 font-medium">关联报价单</th>
+                  <th className="text-left px-4 py-2.5 font-medium">客户</th>
+                  <th className="text-left px-4 py-2.5 font-medium">国家</th>
+                  <th className="text-right px-4 py-2.5 font-medium">金额</th>
+                  <th className="text-left px-4 py-2.5 font-medium">状态</th>
+                  <th className="text-left px-4 py-2.5 font-medium">日期</th>
+                  <th className="text-right px-4 py-2.5 font-medium">操作</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {list.map((q) => {
+                  const customer = q.customer as any;
+                  const amt = amountOf(q);
+                  return (
+                    <tr key={q.id} className="hover:bg-muted/20">
+                      <td className="px-4 py-2.5 font-mono text-xs">{q.pi_no ?? '-'}</td>
+                      <td className="px-4 py-2.5 font-mono text-xs text-muted">{q.quote_no}</td>
+                      <td className="px-4 py-2.5 font-medium">{customer?.company_name ?? '(未关联客户)'}</td>
+                      <td className="px-4 py-2.5">{customer?.country ?? '-'}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums">
+                        {q.currency === 'USD' ? '$' : q.currency + ' '}
+                        {amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-4 py-2.5"><Badge tone={STATUS_TONE[q.status ?? ''] ?? 'gray'}>{q.status}</Badge></td>
+                      <td className="px-4 py-2.5 text-xs text-muted">{(q as any).created_at?.slice(0, 10) ?? '-'}</td>
+                      <td className="px-4 py-2.5 text-right">
+                        <Button size="sm" variant="outline" onClick={() => downloadPi(q)}>
+                          <Download className="w-3.5 h-3.5" />下载
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </CardContent>
       </Card>
     </div>

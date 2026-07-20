@@ -124,6 +124,7 @@ export interface Quotation {
   quote_no: string;
   pi_no?: string | null;
   customer_id: string | null;
+  customer?: Customer;
   status: QuotationStatus;
   currency: Currency;
   language: Locale;

@@ -236,6 +236,15 @@ export const data = {
         .order('created_at', { ascending: false });
       return (data ?? []) as Quotation[];
     },
+    async listPIs(): Promise<Quotation[]> {
+      if (!isSupabaseConfigured()) return [];
+      const sb = getBrowserSupabase();
+      const { data } = await sb.from('quotations')
+        .select('*, items:quotation_items(*), customer:customers(*)')
+        .not('pi_no', 'is', null)
+        .order('created_at', { ascending: false });
+      return (data ?? []) as Quotation[];
+    },
     async get(id: string): Promise<Quotation | null> {
       if (!isSupabaseConfigured()) return null;
       const sb = getBrowserSupabase();
